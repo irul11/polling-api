@@ -1,15 +1,35 @@
 package handler
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
-	"poll-api/database"
 	"poll-api/models"
 )
 
-func GetPolls() ([]models.Polls, error) {
-	query := "SELECT * FROM polls ORDER BY id ASC;"
-	rows, err := database.DB.Query(query)
+type PollHandler interface {
+	GetPolls() ([]models.Polls, error)
+	GetPollsById(pollsId int) (models.Polls, error)
+	CreatePolls(body models.Polls) error
+	UpdatePolls(pollsId int, body models.Polls) error
+	UpdatePollsVote(pollsId int, option string) error
+	DeletePolls(pollsId int) error
+}
+
+type PollHandlerImpl struct {
+	DB *sql.DB
+}
+
+func NewPollHandler(db *sql.DB) PollHandler {
+	return &PollHandlerImpl{
+		DB: db,
+	}
+}
+
+func (ph *PollHandlerImpl) GetPolls() ([]models.Polls, error) {
+	query := "SELECT id, question, answer_a, answer_b, created_at, count_a, count_b FROM polls ORDER BY id ASC;"
+	rows, err := ph.DB.Query(query)
 
 	if err != nil {
 		log.Printf("Error querying polls: %v", err)
@@ -41,10 +61,10 @@ func GetPolls() ([]models.Polls, error) {
 	return polls, nil
 }
 
-func GetPollsById(pollsId int) (models.Polls, error) {
+func (ph *PollHandlerImpl) GetPollsById(pollsId int) (models.Polls, error) {
 	var poll models.Polls
-	query := "SELECT * FROM polls WHERE id=$1"
-	err := database.DB.QueryRow(query, pollsId).Scan(
+	query := "SELECT * FROM polls WHERE id=$1 LIMIT 1;"
+	err := ph.DB.QueryRow(query, pollsId).Scan(
 		&poll.Id,
 		&poll.Question,
 		&poll.AnswerA,
@@ -62,13 +82,13 @@ func GetPollsById(pollsId int) (models.Polls, error) {
 	return poll, nil
 }
 
-func CreatePolls(body models.Polls) error {
+func (ph *PollHandlerImpl) CreatePolls(body models.Polls) error {
 	query := `
 		INSERT INTO polls (question, answer_a, answer_b)
 		VALUES ($1, $2, $3)
 	`
 
-	_, err := database.DB.Exec(query, body.Question, body.AnswerA, body.AnswerB)
+	_, err := ph.DB.Exec(query, body.Question, body.AnswerA, body.AnswerB)
 	if err != nil {
 		log.Printf("Error creating polls: %v", err)
 		return err
@@ -77,14 +97,14 @@ func CreatePolls(body models.Polls) error {
 	return nil
 }
 
-func UpdatePolls(pollsId int, body models.Polls) error {
+func (ph *PollHandlerImpl) UpdatePolls(pollsId int, body models.Polls) error {
 	query := `
 		UPDATE polls
 		SET question=$1, answer_a=$2, answer_b=$3, count_a=0, count_b=0
 		WHERE id=$4
 	`
 
-	_, err := database.DB.Exec(query, body.Question, body.AnswerA, body.AnswerB, pollsId)
+	_, err := ph.DB.Exec(query, body.Question, body.AnswerA, body.AnswerB, pollsId)
 	if err != nil {
 		log.Printf("Error updating polls: %v", err)
 		return err
@@ -93,14 +113,14 @@ func UpdatePolls(pollsId int, body models.Polls) error {
 	return nil
 }
 
-func UpdatePollsVote(pollsId int, option string) error {
+func (ph *PollHandlerImpl) UpdatePollsVote(pollsId int, option string) error {
 	query := fmt.Sprintf(`
 		UPDATE polls 
 		SET count_%s = count_%s + 1
 		WHERE id=$1;
 	`, option, option)
 
-	_, err := database.DB.Exec(query, pollsId)
+	_, err := ph.DB.Exec(query, pollsId)
 
 	if err != nil {
 		log.Printf("Error updating polls's vote: %v", err)
@@ -109,15 +129,25 @@ func UpdatePollsVote(pollsId int, option string) error {
 	return nil
 }
 
-func DeletePolls(pollsId int) error {
+func (ph *PollHandlerImpl) DeletePolls(pollsId int) error {
 	query := `
 		DELETE FROM polls WHERE id=$1;
 	`
 
-	_, err := database.DB.Exec(query, pollsId)
+	result, err := ph.DB.Exec(query, pollsId)
 	if err != nil {
 		log.Printf("Error deleting polls: %v", err)
 		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Println("Database or database driver do not support RowsAffected().")
+		return errors.New("database or database driver do not support RowsAffected()")
+	}
+	if rowsAffected == 0 {
+		log.Printf("Error, deleting polls: %v", err)
+		return errors.New("no data deleted")
 	}
 	return nil
 }

@@ -11,12 +11,18 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type Polls struct {
-	Name string `json:"name"`
+type PollsController struct {
+	Handler handler.PollHandler
 }
 
-func GetPolls(w http.ResponseWriter, r *http.Request) {
-	polls, err := handler.GetPolls()
+func NewPollsController(ph handler.PollHandler) *PollsController {
+	return &PollsController{
+		Handler: ph,
+	}
+}
+
+func (pc *PollsController) GetPolls(w http.ResponseWriter, r *http.Request) {
+	polls, err := pc.Handler.GetPolls()
 	if err != nil {
 		http.Error(w, "Error on querying polls data", http.StatusInternalServerError)
 		return
@@ -36,7 +42,7 @@ func GetPolls(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GetPollsById(w http.ResponseWriter, r *http.Request) {
+func (pc *PollsController) GetPollsById(w http.ResponseWriter, r *http.Request) {
 	pollsIdParam := chi.URLParam(r, "pollsId")
 	pollsId, err := strconv.Atoi(pollsIdParam)
 	if err != nil {
@@ -45,7 +51,7 @@ func GetPollsById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	polls, err := handler.GetPollsById(pollsId)
+	polls, err := pc.Handler.GetPollsById(pollsId)
 	if err != nil {
 		http.Error(w, "Error on querying polls data", http.StatusInternalServerError)
 		return
@@ -65,7 +71,7 @@ func GetPollsById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CreatePolls(w http.ResponseWriter, r *http.Request) {
+func (pc *PollsController) CreatePolls(w http.ResponseWriter, r *http.Request) {
 	var polls models.Polls
 
 	decoder := json.NewDecoder(r.Body)
@@ -76,7 +82,7 @@ func CreatePolls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = handler.CreatePolls(polls)
+	err = pc.Handler.CreatePolls(polls)
 	if err != nil {
 		// Handle error
 		http.Error(w, "Failed insert data", http.StatusInternalServerError)
@@ -84,7 +90,7 @@ func CreatePolls(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UpdatePolls(w http.ResponseWriter, r *http.Request) {
+func (pc *PollsController) UpdatePolls(w http.ResponseWriter, r *http.Request) {
 	var polls models.Polls
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&polls)
@@ -101,14 +107,14 @@ func UpdatePolls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = handler.UpdatePolls(pollsId, polls)
+	err = pc.Handler.UpdatePolls(pollsId, polls)
 	if err != nil {
 		http.Error(w, "Error updating polls", http.StatusInternalServerError)
 		return
 	}
 }
 
-func UpdatePollsVote(w http.ResponseWriter, r *http.Request) {
+func (pc *PollsController) UpdatePollsVote(w http.ResponseWriter, r *http.Request) {
 	option := chi.URLParam(r, "option")
 	if option != "a" && option != "b" {
 		http.Error(w, "Invalid request option", http.StatusBadRequest)
@@ -124,7 +130,7 @@ func UpdatePollsVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = handler.UpdatePollsVote(pollsId, option)
+	err = pc.Handler.UpdatePollsVote(pollsId, option)
 	if err != nil {
 		http.Error(w, "Error updating vote", http.StatusInternalServerError)
 		return
@@ -132,7 +138,7 @@ func UpdatePollsVote(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Updating vote succesful"))
 }
 
-func DeletePolls(w http.ResponseWriter, r *http.Request) {
+func (pc *PollsController) DeletePolls(w http.ResponseWriter, r *http.Request) {
 	pollsIdParam := chi.URLParam(r, "pollsId")
 	pollsId, err := strconv.Atoi(pollsIdParam)
 
@@ -142,7 +148,7 @@ func DeletePolls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = handler.DeletePolls(pollsId)
+	err = pc.Handler.DeletePolls(pollsId)
 	if err != nil {
 		http.Error(w, "Error deleting polls", http.StatusInternalServerError)
 	}

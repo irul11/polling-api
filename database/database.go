@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -33,6 +34,11 @@ func LoadDatabase() {
 	if err != nil {
 		panic(err)
 	}
+
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(100) // based on maxconn from postgresql.conf
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetConnMaxLifetime(60 * time.Minute)
 
 	// Verify connection
 	err = db.Ping()

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"poll-api/controllers"
 	"poll-api/database"
+	"poll-api/handler.go"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -28,12 +29,16 @@ func main() {
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("This is API endpoint for poll app"))
 	})
-	r.Get("/polls", controllers.GetPolls)
-	r.Get("/polls/{pollsId}", controllers.GetPollsById)
-	r.Post("/polls", controllers.CreatePolls)
-	r.Put("/polls/{pollsId}", controllers.UpdatePolls)
-	r.Put("/polls/{pollsId}/{option}", controllers.UpdatePollsVote)
-	r.Delete("/polls/{pollsId}", controllers.DeletePolls)
+
+	pollHandler := handler.NewPollHandler(database.DB)
+	pollController := controllers.NewPollsController(pollHandler)
+
+	r.Get("/polls", pollController.GetPolls)
+	r.Get("/polls/{pollsId}", pollController.GetPollsById)
+	r.Post("/polls", pollController.CreatePolls)
+	r.Put("/polls/{pollsId}", pollController.UpdatePolls)
+	r.Put("/polls/{pollsId}/{option}", pollController.UpdatePollsVote)
+	r.Delete("/polls/{pollsId}", pollController.DeletePolls)
 
 	http.ListenAndServe(":4343", r)
 }
